@@ -31,7 +31,7 @@
 *       Adopt twice the tidal radius as escape condition.
       RESC2 = 4.0*RTIDE**2
 *       For tidal cutoff check only energy
-      IF(KZ(23).EQ.3)THEN
+      IF(KZ(23).EQ.3.OR.KZ(23).GE.5)THEN
           RESC2 = 0.D0
           ETID = ZMASS/RTIDE
           ZMOLD = ZMASS
@@ -121,7 +121,7 @@
                   END IF
     9         CONTINUE
               VI2 = XDOT(1,I)**2 + XDOT(2,I)**2 + XDOT(3,I)**2
-              POTI = -PHIDBL(I)
+              POTI = PHIDBL(I)
 *       Check escape criterion for tidal case or isolated system.
               EI = 0.5*VI2 - POTI + ETID
 *
@@ -225,12 +225,13 @@
 #ifdef TT
 *       Check initialization of tidal tail integration for 3D model.
 *** FlorentR - add nbody6tt
-      IF (KZ(23).GE.3.AND.(KZ(14).EQ.3.OR.KZ(14).EQ.9)) THEN
+      IF (KZ(23).GE.5.AND.(KZ(14).EQ.3.OR.KZ(14).EQ.5
+     &                              .OR.KZ(14).EQ.9)) THEN
 *** FRenaud
 #else
-      IF (KZ(23).GE.3.AND.KZ(14).EQ.3) THEN
+      IF (KZ(23).GE.5.AND.(KZ(14).EQ.3.OR.KZ(14).EQ.5)) THEN
 #endif
-         CALL TAIL0(I)
+         CALL TAIL0(I,EI,RI2,VI2,POTI)
       END IF
 
 *       Obtain binding energy of body #I and update optional tidal radius.
@@ -238,7 +239,7 @@
 #ifdef TT
       IF (KZ(14).GT.0.AND.KZ(14).LT.3) THEN
 #else
-      IF (KZ(14).GT.0) THEN
+      IF (KZ(14).GT.0.AND.KZ(14).NE.3.AND.KZ(14).NE.5) THEN
 #endif
           CALL XTRNLV(I,I)
           ZK = ZK + HT
@@ -742,4 +743,3 @@
       GO TO 12
 *
       END
-

@@ -17,6 +17,9 @@
      &    NS=44*MMAX)
       REAL*4  B,C,D,E,G,L,M,O,P,Q,S
       INTEGER K,I,NPARTMP(10),KSTAR,NCOMM,IA
+      INTEGER IOS,ITAIL0,NTAIL,ITAIL_TAG,ITAIL_VERSION
+      INTEGER ITAIL_MAGIC,ITAIL_DUMP_VERSION
+      PARAMETER (ITAIL_MAGIC=20260810,ITAIL_DUMP_VERSION=1)
 *
 #ifdef PARALLEL
       integer iinl,iisize,inl,istart,iend,ilen,irun,idiff,jsize
@@ -157,6 +160,23 @@
      &       ((tteigenv(k,i),k=1,3),i=1,3),(ttrtide(k),k=1,3)
 *** FRenaud
 #endif
+*       Tail particles occupy a non-contiguous range beyond NTOT.
+        ITAIL0 = IA(79)
+        NTAIL = IA(80)
+        IF (NTAIL.GT.0) THEN
+           WRITE (J) ITAIL_MAGIC,ITAIL_DUMP_VERSION
+           WRITE (J) ((X(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((XDOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((X0(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((X0DOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((F(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((FDOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((FI(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((FIDOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       (BODY(I),I=ITAIL0,NTTOT),(STEP(I),I=ITAIL0,NTTOT),
+     &       (T0(I),I=ITAIL0,NTTOT),(TIMENW(I),I=ITAIL0,NTTOT),
+     &       (NAME(I),I=ITAIL0,NTTOT)
+        END IF
         END FILE J
         CLOSE (UNIT=J)
         END IF
@@ -220,6 +240,8 @@
            END IF
            
            READ (J) ntot,npairs,nttot,ia,b,c,d,e,g,l,m,o,p,q,s
+           ITAIL0 = IA(79)
+           NTAIL = IA(80)
 
             PRINT*,' R MYDUMP J,II,NPARTMP=',J,II,NPARTMP,
      *             ' ntot,npairs,nttot=',ntot,npairs,nttot,
@@ -230,6 +252,20 @@
 *
         if (rank.eq.0.and.ntot.gt.nmax) then
           write (*,*) "DANGER NTOT ",ntot," > NMAX ",nmax,"!"
+          call flush(6)
+          stop
+        end if
+
+        if (rank.eq.0.and.nttot.gt.nmax) then
+          write (*,*) "DANGER NTTOT ",nttot," > NMAX ",nmax,"!"
+          call flush(6)
+          stop
+        end if
+
+        if (rank.eq.0.and.ntail.gt.0.and.
+     &      (itail0.lt.1.or.nttot-itail0+1.ne.ntail)) then
+          write (*,*) "DANGER INVALID TAIL RANGE ",
+     &                itail0,nttot,ntail
           call flush(6)
           stop
         end if
@@ -300,6 +336,33 @@
 
 #endif
 
+        IF (NTAIL.GT.0) THEN
+           READ (J,IOSTAT=IOS) ITAIL_TAG,ITAIL_VERSION
+           IF (IOS.NE.0.OR.ITAIL_TAG.NE.ITAIL_MAGIC.OR.
+     &         ITAIL_VERSION.NE.ITAIL_DUMP_VERSION) THEN
+              WRITE (6,*) 'ERROR! DUMP HAS NO VALID TAIL STATE'
+              CALL FLUSH(6)
+              CALL ABORT()
+           END IF
+           READ (J,IOSTAT=IOS)
+     &       ((X(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((XDOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((X0(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((X0DOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((F(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((FDOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((FI(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       ((FIDOT(K,I),K=1,3),I=ITAIL0,NTTOT),
+     &       (BODY(I),I=ITAIL0,NTTOT),(STEP(I),I=ITAIL0,NTTOT),
+     &       (T0(I),I=ITAIL0,NTTOT),(TIMENW(I),I=ITAIL0,NTTOT),
+     &       (NAME(I),I=ITAIL0,NTTOT)
+           IF (IOS.NE.0) THEN
+              WRITE (6,*) 'ERROR! CANNOT READ TAIL STATE'
+              CALL FLUSH(6)
+              CALL ABORT()
+           END IF
+        END IF
+
         end if
 
 *     Reinitialize KVEC
@@ -319,6 +382,8 @@
          CALL MPI_BCAST(npairs,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
          CALL MPI_BCAST(nttot,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
          CALL MPI_BCAST(IA(1),NA,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+         ITAIL0 = IA(79)
+         NTAIL = IA(80)
          CALL MPI_BCAST(B(1),NB,MPI_REAL4,0,MPI_COMM_WORLD,ierr)
          CALL MPI_BCAST(C(1),NC,MPI_REAL4,0,MPI_COMM_WORLD,ierr)
          CALL MPI_BCAST(D(1),ND,MPI_REAL4,0,MPI_COMM_WORLD,ierr)
@@ -401,6 +466,34 @@
        CALL MPI_BCAST(KSLOW(1),NPAIRS,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
        CALL MPI_BCAST(DTGW(1),NPAIRS,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
        CALL MPI_BCAST(NAME(1),NTOT,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+       IF (NTAIL.GT.0) THEN
+       CALL MPI_BCAST(X(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(XDOT(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(X0(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(X0DOT(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(F(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(FDOT(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(FI(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(FIDOT(1,ITAIL0),3*NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(BODY(ITAIL0),NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(STEP(ITAIL0),NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(T0(ITAIL0),NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(TIMENW(ITAIL0),NTAIL,MPI_REAL8,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       CALL MPI_BCAST(NAME(ITAIL0),NTAIL,MPI_INTEGER,0,
+     &                                      MPI_COMM_WORLD,ierr)
+       END IF
 *
            iinl = NTOT
 *

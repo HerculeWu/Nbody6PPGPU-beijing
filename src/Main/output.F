@@ -19,11 +19,21 @@
 *      COMMON/NNBCOT/  nnbave
       REAL*8  X1(3,4),V1(3,4),UI(4),VI(4),XREL2(3),VREL2(3)
       REAL*4  XS(3,NMAX),VS(3,NMAX),BODYS(NMAX),RHOS(NMAX),AS(20)
-      REAL*4  XJ(3,6),VJ(3,6),BODYJ(6)
+      REAL*8  XJ(3,6),VJ(3,6),BODYJ(6)
       REAL*4  XNS(NMAX),PHI(NMAX)
       CHARACTER*27 OUTFILE
       CHARACTER*28 OUTTAIL
       CHARACTER*20 TCHAR
+#ifdef TIDALTILES_HP_OUTPUT_V1
+      REAL*8, ALLOCATABLE :: TTDBHP_X(:,:),TTDBHP_V(:,:)
+      REAL*8, ALLOCATABLE :: TTDBHP_BODY(:)
+      REAL*8 TTDBHP_ZMB
+      INTEGER TTDBHP_VERSION
+      PARAMETER (TTDBHP_VERSION=2)
+      CHARACTER*16 TTDBHP_MAGIC
+      CHARACTER*28 TTDBHP_FILE
+      DATA TTDBHP_MAGIC /'TIDALTILES_NB6HP'/
+#endif
 *
 *     Obtain energy error in case routine ADJUST not called recently.
       IF (TIME.GE.TADJ.OR.TIME.LE.0.0D0) GO TO 10
@@ -55,6 +65,19 @@
       ERROR = ERROR + DE
 *
   10  CONTINUE
+*
+*       Synchronize external-field-only tail states with this output.
+      IF (NTAIL.GT.0) THEN
+#ifndef TT
+!$omp parallel do private(I)
+#endif
+          DO I = ITAIL0,NTTOT
+              CALL NTINT(I)
+          END DO
+#ifndef TT
+!$omp end parallel do
+#endif
+      END IF
 *
 *       Find density centre & core radius (Casertano & Hut, Ap.J. 298, 80).
       IF (N.GE.20) THEN
@@ -347,6 +370,13 @@ c$$$              END IF
 *       Check optional writing of data on unit 3 (frequency NFIX).
       IF (KZ(3).EQ.0.OR.NPRINT.NE.1) GO TO 100
 *
+#ifdef TIDALTILES_HP_OUTPUT_V1
+      IF(rank.EQ.0) THEN
+          ALLOCATE(TTDBHP_X(3,NTOT),TTDBHP_V(3,NTOT),
+     &             TTDBHP_BODY(NTOT))
+      END IF
+#endif
+*
       DO 80 IPAIR = 1,NPAIRS
           RHO(2*IPAIR-1) = RHO(N+IPAIR)
           RHO(2*IPAIR) = RHO(N+IPAIR)
@@ -363,9 +393,18 @@ c$$$              END IF
           RHOS(I) = REAL(RHO(I))
           XNS(I) = REAL(XNDBL(I))
           PHI(I) = REAL(-PHIDBL(I))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+          IF(rank.EQ.0) TTDBHP_BODY(I) = BODY(I)
+#endif
           DO 85 K = 1,3
               XS(K,I) = REAL(X(K,I))
               VS(K,I) = REAL(XDOT(K,I))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+              IF(rank.EQ.0) THEN
+                  TTDBHP_X(K,I) = X(K,I)
+                  TTDBHP_V(K,I) = XDOT(K,I)
+              END IF
+#endif
    85     CONTINUE
    90 CONTINUE
 *
@@ -395,20 +434,46 @@ c$$$              END IF
                      BODYS(JG) = REAL(CM(2,IM))
                      BODYS(J1) = REAL(CM(1,IM2))
                      BODYS(JG2) = REAL(CM(2,IM2))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+                     IF(rank.EQ.0) THEN
+                        TTDBHP_BODY(JG) = CM(2,IM)
+                        TTDBHP_BODY(J1) = CM(1,IM2)
+                        TTDBHP_BODY(JG2) = CM(2,IM2)
+                     END IF
+#endif
                   ELSE
                      JP = JG - N
                      BODYS(2*JP-1) = REAL(CM(3,IM))
                      BODYS(2*JP) = REAL(CM(4,IM))
                      BODYS(JG2) = REAL(CM(2,IM2))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+                     IF(rank.EQ.0) THEN
+                        TTDBHP_BODY(2*JP-1) = CM(3,IM)
+                        TTDBHP_BODY(2*JP) = CM(4,IM)
+                        TTDBHP_BODY(JG2) = CM(2,IM2)
+                     END IF
+#endif
                   END IF
                ELSE
                   IF (JG.LE.N) THEN
                      BODYS(JG) = REAL(CM(2,IM))
                      BODYS(JG2) = REAL(CM(2,IM2))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+                     IF(rank.EQ.0) THEN
+                        TTDBHP_BODY(JG) = CM(2,IM)
+                        TTDBHP_BODY(JG2) = CM(2,IM2)
+                     END IF
+#endif
                   ELSE
                      JP = JG - N
                      BODYS(2*JP-1) = REAL(CM(3,IM2))
                      BODYS(2*JP) = REAL(CM(4,IM2))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+                     IF(rank.EQ.0) THEN
+                        TTDBHP_BODY(2*JP-1) = CM(3,IM2)
+                        TTDBHP_BODY(2*JP) = CM(4,IM2)
+                     END IF
+#endif
                   END IF
                END IF
                GO TO 95
@@ -420,6 +485,13 @@ c$$$              END IF
             BODYS(J1) = REAL(CM(1,IM))
             BODYS(J) = REAL(CM(2,IM))
             ZMB = REAL(CM(1,IM) + CM(2,IM))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+            IF(rank.EQ.0) THEN
+               TTDBHP_BODY(J1) = CM(1,IM)
+               TTDBHP_BODY(J) = CM(2,IM)
+               TTDBHP_ZMB = CM(1,IM) + CM(2,IM)
+            END IF
+#endif
 *     Form global coordinates and velocities from c.m. with XREL & VREL.
             DO K = 1,3
                X1(K,1) = X(K,J1) + CM(2,IM)*XREL(K,IM)/ZMB
@@ -431,6 +503,18 @@ c$$$              END IF
                XS(K,J)  = REAL(X1(K,2))
                VS(K,J1) = REAL(V1(K,1))
                VS(K,J)  = REAL(V1(K,2))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+               IF(rank.EQ.0) THEN
+                  TTDBHP_X(K,J1) = X(K,J1) +
+     &                 CM(2,IM)*XREL(K,IM)/TTDBHP_ZMB
+                  TTDBHP_X(K,J) = X(K,J1) -
+     &                 CM(1,IM)*XREL(K,IM)/TTDBHP_ZMB
+                  TTDBHP_V(K,J1) = XDOT(K,J1) +
+     &                 CM(2,IM)*VREL(K,IM)/TTDBHP_ZMB
+                  TTDBHP_V(K,J) = XDOT(K,J1) -
+     &                 CM(1,IM)*VREL(K,IM)/TTDBHP_ZMB
+               END IF
+#endif
             END DO
 *     Look for ghosts of possible second (i.e. outer) merged binary.
 c$$$            if(rank.eq.0)print*,' after findj t,j1,j2,jpair,j,im=',j1,
@@ -448,6 +532,14 @@ c$$$     &           nmerge,name(j1),name(j2),name(icm)
                BODYS(I2) = REAL(CM(4,IM))
                BODYS(J2) = REAL(CM(2,IM))
                BODYS(J) = REAL(CM(3,IM) + CM(4,IM))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+               IF(rank.EQ.0) THEN
+                  TTDBHP_BODY(I1) = CM(3,IM)
+                  TTDBHP_BODY(I2) = CM(4,IM)
+                  TTDBHP_BODY(J2) = CM(2,IM)
+                  TTDBHP_BODY(J) = CM(3,IM) + CM(4,IM)
+               END IF
+#endif
 *     Copy KS variables to local scalars.
                DO K = 1,4
                   UI(K) = U(K,IPAIR)
@@ -469,6 +561,16 @@ c$$$     &           nmerge,name(j1),name(j2),name(icm)
                   VS(K,I2)  = REAL(V1(K,4))
                   XS(K,ICM2) = REAL(X(K,J2))
                   VS(K,ICM2) = REAL(XDOT(K,J2))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+                  IF(rank.EQ.0) THEN
+                     TTDBHP_X(K,I1) = X1(K,3)
+                     TTDBHP_X(K,I2) = X1(K,4)
+                     TTDBHP_V(K,I1) = V1(K,3)
+                     TTDBHP_V(K,I2) = V1(K,4)
+                     TTDBHP_X(K,ICM2) = X(K,J2)
+                     TTDBHP_V(K,ICM2) = XDOT(K,J2)
+                  END IF
+#endif
                END DO
             END IF
          END IF
@@ -484,6 +586,13 @@ c$$$     &           nmerge,name(j1),name(j2),name(icm)
               DO 97 K = 1,3
                   XS(K,J) = REAL(XJ(K,L))
                   VS(K,J) = REAL(VJ(K,L))
+#ifdef TIDALTILES_HP_OUTPUT_V1
+                  IF(rank.EQ.0) THEN
+                     TTDBHP_BODY(J) = BODYJ(L)
+                     TTDBHP_X(K,J) = XJ(K,L)
+                     TTDBHP_V(K,J) = VJ(K,L)
+                  END IF
+#endif
    97         CONTINUE
    98     CONTINUE
       END IF
@@ -543,7 +652,7 @@ c$$$     &           nmerge,name(j1),name(j2),name(icm)
      &                                       ,FILE=OUTTAIL)
             
             NK = 13
-            WRITE (50) NTAIL, MODEL, NK
+            WRITE (50,*) NTAIL, MODEL, NK
 *     Include cluster centre just in case.
             DO K = 1,3
                AS(K) = REAL(RG(K))
@@ -555,7 +664,7 @@ c$$$     &           nmerge,name(j1),name(j2),name(icm)
             AS(12) = REAL(TSTAR)
             AS(13) = REAL(VSTAR)
             NK = 13
-            WRITE (50)  (AS(K),K=1,NK)
+            WRITE (50,*) (AS(K),K=1,NK)
             
             IF (NTAIL.GT.0) THEN
 *     Individual stars
@@ -565,11 +674,35 @@ c$$$     &           nmerge,name(j1),name(j2),name(icm)
                      XS(K,I) = REAL(X(K,I) - RG(K))
                      VS(K,I) = REAL(XDOT(K,I) - VG(K))
                   END DO
-                  WRITE (50) NAME(I),BODYS(I),XS(1:3,I),VS(1:3,I)
+                  WRITE (50,*) NAME(I),BODYS(I),XS(1:3,I),VS(1:3,I)
                END DO
             END IF
             CLOSE(50)
          END IF
+
+#ifdef TIDALTILES_HP_OUTPUT_V1
+*     Versioned double-precision physical-particle snapshot sidecar.
+*     Core coordinates are cluster-relative; tail coordinates are
+*     shifted to the same RG/VG offset convention.
+         write(TTDBHP_FILE,120) TCHAR
+ 120     format('ttdb.80_',A20)
+         OPEN (UNIT=80,STATUS='REPLACE',FORM='UNFORMATTED',
+     &                                  FILE=TTDBHP_FILE)
+         WRITE (80) TTDBHP_MAGIC,TTDBHP_VERSION,N,NTAIL,MODEL,NRUN
+         WRITE (80) TTOT,RBAR,ZMBAR,TSTAR,RG(1:3),VG(1:3)
+         WRITE (80) (NAME(I),I=1,N)
+         WRITE (80) (TTDBHP_BODY(I),I=1,N),
+     &        ((TTDBHP_X(K,I),K=1,3),I=1,N),
+     &        ((TTDBHP_V(K,I),K=1,3),I=1,N)
+         IF (NTAIL.GT.0) THEN
+            WRITE (80) (NAME(I),I=ITAIL0,NTTOT)
+            WRITE (80) (BODY(I),I=ITAIL0,NTTOT),
+     &           ((X(K,I)-RG(K),K=1,3),I=ITAIL0,NTTOT),
+     &           ((XDOT(K,I)-VG(K),K=1,3),I=ITAIL0,NTTOT)
+         END IF
+         CLOSE(80)
+         DEALLOCATE(TTDBHP_X,TTDBHP_V,TTDBHP_BODY)
+#endif
 
       end if
 *

@@ -6,12 +6,18 @@
 *
       INCLUDE 'common6.h'
       REAL*8  XI(3),XIDOT(3),FIRR(3),FD(3)
+      LOGICAL LAST
 *
 *
-*       Predict position and velocity up to end of STEP.
-      ITER = 0
+*       Advance to the current output time using internal adaptive steps.
+      IF (STEP(I).LE.0.0D0) STEP(I) = SMAXT*2.0D0**(-63)
+      STEP(I) = MIN(STEP(I),SMAXT)
+      IF (T0(I).GE.TIME) GO TO 100
     1 J = I
-      S = STEP(J)
+      LAST = STEP(J).GE.TIME - T0(J)
+      S = MIN(STEP(J),TIME - T0(J))
+
+*       Predict position and velocity up to end of this step.
       S1 = 1.5*S
       S2 = 2.0*S
       X(1,J) = ((FDOT(1,J)*S + F(1,J))*S +X0DOT(1,J))*S + X0(1,J)
@@ -33,13 +39,14 @@
       CALL XTRNLT(XI,XIDOT,FIRR,FD)
 *
 *       Include the corrector and set new T0, F, FDOT, D1, D2 & D3.
-      DT = STEP(I)
+      DT = S
       DTSQ = DT**2
       DT6 = 6.0D0/(DT*DTSQ)
       DT2 = 2.0D0/DTSQ
       DTSQ12 = ONE12*DTSQ
       DT13 = ONE3*DT
-      T0(I) = T0(I) + STEP(I)
+      T0(I) = T0(I) + DT
+      IF (LAST) T0(I) = TIME
 *
       DO 10 K = 1,3
           DF = FI(K,I) - FIRR(K)
@@ -69,38 +76,27 @@
 *
 *       Specify new time-step by standard criterion.
       TTMP = TSTEP(FIRR,FD,D2(1,I),D3(1,I),ETAI)
-      DT0 = TTMP
-      TTIME = T0(I)
 *
 *       Select discrete value (increased by 2, decreased by 2 or unchanged).
       IF (TTMP.GT.2.0*STEP(I)) THEN
-          TTMP = MIN(2.0*STEP(I),1.0D0)
+          TTMP = MIN(2.0*STEP(I),SMAXT)
       ELSE IF (TTMP.LT.STEP(I)) THEN
           TTMP = 0.5*STEP(I)
       ELSE
           TTMP = STEP(I)
       END IF
 *
-*       Do not permit current TIME to be exceeded.
-      IF (T0(I) + TTMP.GT.TIME) THEN
-          TTMP = TIME - T0(I)
-      END IF
-*
 *       Set new block step and update next time.
-      STEP(I) = TTMP
+      STEP(I) = MIN(TTMP,SMAXT)
       TIMENW(I) = STEP(I) + T0(I)
 *
 *       Increase step counter.
 C      NSTAIL = NSTAIL + 1
 *
-*       See whether to continue until end of large block-step.
-      IF (TIMENW(I).LT.TIME) THEN
-          ITER = ITER + 1
-          IF (ITER.LT.10) GO TO 1
-          if(rank.eq.0)WRITE (6,20)  I, TIME, STEP(I), FIRR
-   20     FORMAT (' SMALL TIDAL STEP    I T DT F ',I7,F7.1,1P,4E10.2)
-      END IF
+*       Continue until the corrected state reaches the output time.
+      IF (.NOT.LAST) GO TO 1
 *
+  100 TIMENW(I) = STEP(I) + T0(I)
       RETURN
 *
       END

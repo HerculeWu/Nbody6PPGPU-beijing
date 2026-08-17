@@ -68,3 +68,10 @@ dkms.conf
 examples/example_1k/*
 examples/.ipynb_checkpoints
 !examples/example_1k/1k.inp
+
+# tidaltiles local build artifacts
+Makefile
+build/Makefile
+build/nbody6++.*
+config.log
+config.status

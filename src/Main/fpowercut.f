@@ -24,7 +24,7 @@
       dmr = -4.0*pi*Den_PowCut(r,B_AMP,B_ALPHA,B_RC)
 
       FM(1:3) = mr*XI(1:3)
-      FD = mr*(XIDOT -3.0*rvr2*XI) + dmr*rvr2/r2*XI
+      FD = mr*(XIDOT -3.0*rvr2*XI) + dmr*rvr2*XI
 
 *
       RETURN
@@ -78,4 +78,3 @@
       Pot_PowCut = amp*2.0*pi*rc**(3.0-alpha)*(ginc*g/rc-ginc2*g2/r)
       return 
       end
-

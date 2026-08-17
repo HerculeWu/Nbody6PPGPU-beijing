@@ -20,12 +20,12 @@
       ra = H_A + r
       drdv = XI(1)*XIDOT(1) + XI(2)*XIDOT(2) + XI(3)*XIDOT(3)
       DP  = H_AMP*(1.0D0/(r2*ra) - log(1.0D0+r/H_A)/r3)
-      DDP = H_AMP*(-2.0D0/(r*ra) - 1.0D0/(ra*ra) + 3*log(1+r/H_A)/r2)
+      DDP = H_AMP*(-3.0D0/(r*ra) - 1.0D0/(ra*ra) + 3*log(1+r/H_A)/r2)
      &     *drdv/r3
 *
 *     Note softening in the logarithmic potential (cf. Binney & Tremaine).
       FM = DP*XI
-      FD = DP*XIDOT - DDP*XI
+      FD = DP*XIDOT + DDP*XI
 *
       RETURN
 *
@@ -43,4 +43,3 @@
       return 
 
       end
-

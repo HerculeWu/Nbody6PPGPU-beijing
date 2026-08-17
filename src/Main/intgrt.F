@@ -1329,23 +1329,6 @@ c$$$*     --10/27/13 10:33-lwang-end----------------------------------------*
 *     Take care is this really efficient?
 *         CALL GPUIRR_SET_JP(I,X0(1,I),X0DOT(1,I),F(1,I),FDOT(1,I),
 *    &                                            BODY(I),T0(I))
-      IF (NTAIL.GT.0) THEN
-*     Allow large quantized interval with internal iteration.
-         IF (DMOD(TIME,0.25D0).EQ.0.0D0) THEN
-#ifndef TT
-!$omp parallel do private(J)      
-#endif
-            DO 65 J = ITAIL0,NTTOT
-               IF (TIMENW(J).LE.TIME) THEN
-                  CALL NTINT(J)
-               END IF
- 65         CONTINUE
-#ifndef TT
-!$omp end parallel do
-#endif
-         END IF
-      END IF
-*
 *       Exit on KS termination, new multiple regularization or merger.
       IF (IQ.GT.0) THEN
           NBPREV = 0

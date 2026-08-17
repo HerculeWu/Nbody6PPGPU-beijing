@@ -10,7 +10,7 @@
 *
        NAMELIST /ININPUT/ N, NFIX, NCRIT, NRAND, NNBOPT, NRUN, NCOMM,
      &    ETAI, ETAR, RS0, DTADJ, DELTAT, TCRIT,QE, RBAR, ZMBAR,
-     &    KZ, DTMIN, RMIN, ETAU, ECLOSE, GMIN, GMAX, SMAX, LEVEL
+     &    KZ, DTMIN, RMIN, ETAU, ECLOSE, GMIN, GMAX, SMAX, SMAXT, LEVEL
 *
 #ifdef PARALLEL
 #define MPIINIT 1
@@ -33,8 +33,18 @@
 
 *
       if(rank.eq.0)then
+          SMAXT = -1.0D30
           READ (NML=ININPUT, IOSTAT=IIC, UNIT=5)
           IF (IIC.NE.0) WRITE (6, '("INPUT: invalid Namelist format")')
+          IF (SMAXT.EQ.-1.0D30) SMAXT = SMAX
+          IF (SMAX.LE.0.0D0.OR.SMAXT.LE.0.0D0) THEN
+              PRINT*,' INPUT: SMAX and SMAXT must be positive.'
+#if MPIINIT
+              CALL MPI_ABORT(MPI_COMM_WORLD,ierr)
+#else
+              STOP
+#endif
+          END IF
 *
           IF(KSTART.GT.2)THEN
               PRINT*,' KSTART > 2 obsolete in new namelist input, STOP'
@@ -67,6 +77,17 @@
                IF(DTNSMAX.GT.1E-19) GO TO 1
             END IF
             SMAX = DTNSMAX
+         END IF
+         IF(SMAXT.GT.1) THEN
+            print*, 'Warning! SMAXT > 1.0, reduce to 1.0.'
+            SMAXT = 1.0
+         ELSE
+            DTNSMAX = 1.0
+ 2          IF(SMAXT/DTNSMAX.LE.0.75) THEN
+               DTNSMAX = 0.5D0*DTNSMAX
+               IF(DTNSMAX.GT.1E-19) GO TO 2
+            END IF
+            SMAXT = DTNSMAX
          END IF
       end if
 *
@@ -141,9 +162,10 @@
    26    FORMAT (/,9X,50I3)
          WRITE (6,28)
    28    FORMAT (/,12X,'DTMIN     RMIN      ETAU      ECLOSE    GMIN',
-     &        '      GMAX     SMAX')
-         WRITE (6,30)  DTMIN, RMIN, ETAU, ECLOSE, GMIN, GMAX, SMAX
-   30    FORMAT (/,9X,1P7E10.1)
+     &        '      GMAX     SMAX     SMAXT')
+         WRITE (6,30)  DTMIN, RMIN, ETAU, ECLOSE, GMIN, GMAX, SMAX,
+     &                  SMAXT
+   30    FORMAT (/,9X,1P8E10.1)
          WRITE (6,31)
    31    FORMAT(/,30X,'=====================================',/)
 *
@@ -178,6 +200,7 @@
       CALL MPI_BCAST(GMIN,1,MPI_REAL8,0,MPI_COMM_WORLD,ierr)
       CALL MPI_BCAST(GMAX,1,MPI_REAL8,0,MPI_COMM_WORLD,ierr)
       CALL MPI_BCAST(SMAX,1,MPI_REAL8,0,MPI_COMM_WORLD,ierr)
+      CALL MPI_BCAST(SMAXT,1,MPI_REAL8,0,MPI_COMM_WORLD,ierr)
       CALL MPI_BCAST(LEVEL,1,MPI_CHARACTER,0,MPI_COMM_WORLD,ierr)
 #endif
 *

@@ -17,6 +17,7 @@ CC = @CC@
 NVCC = @NVCC@
 
 RESULT = nbody6++@RESULT@
+TIDALTILES_RESULT = $(RESULT).ttdbhp
 #FFLAGS = -O3 -fbounds-check -fbacktrace -fno-automatic -fmax-stack-var-size=0 -fPIC -mcmodel=large -Wall
 OMP_FLAGS= -D OMP
 MPI_FLAGS = -D PARALLEL -D PUREMPI @MPI_FLAGS@
@@ -115,11 +116,21 @@ fpowercut.f asa147.f fmiyamoto.f fnfw.f fmwpot.f mwpotinit.f pmwpot.f
 .SUFFIXES : .o .F
 
 OBJECTS = $(SOURCE:.f=.o)
+TIDALTILES_OBJECTS = $(filter-out output.o,$(OBJECTS)) output.ttdbhp.o
 
 TARGET: $(RESULT) @EXTRARESULT@
 
 $(RESULT): $(OBJECTS) $(EXTRAOBJ)
 	$(FC) $(FFLAGS) $(LDFLAGS) $(OBJECTS) $(EXTRAOBJ)  @LIBS@
+
+.PHONY: tidaltiles-hp
+tidaltiles-hp: $(TIDALTILES_RESULT)
+
+$(TIDALTILES_RESULT): $(TIDALTILES_OBJECTS) $(EXTRAOBJ)
+	$(FC) $(FFLAGS) -o $@ $(TIDALTILES_OBJECTS) $(EXTRAOBJ) @LIBS@
+
+output.ttdbhp.o: ../src/Main/output.F $(INC)
+	$(FC) $(FFLAGS) -DTIDALTILES_HP_OUTPUT_V1 -c $< -o $@
 
 libinitial.so: initial.h initial.cpp
 	$(CXX) -shared $(CXXFLAGS) ../src/Tools/initial.cpp -o libinitial.so
@@ -167,4 +178,3 @@ gpupot.gpu.o: gpupot.gpu.cu
 
 gpupot.mdot.o: gpupot.mdot.cu
 	$(NVCC) -c $(CUFLAGS) -Xcompiler "$(CXXFLAGS)"  $^
-
