@@ -392,6 +392,16 @@ C     New (Aug. 1998): P.Kroupa
 *     
       IF (TTOT*TSCALE.GT.TCRITp.OR.TTOT.GT.TCRIT - 20.0*DTMIN
      &     .OR.N.LE.NCRIT) THEN
+*       Write one final high-precision snapshot at the exact termination
+*       state so the last stored epoch reaches the requested physical end
+*       time.  OUTPUT forms file names with DELTAT decimals, so refine it
+*       temporarily.  Skip when TTOT is already on the output grid.
+          IF (DMOD(TTOT,DELTAT).GT.1.0D-9*DELTAT) THEN
+              DELTATS = DELTAT
+              DELTAT = 1.0D-4
+              CALL OUTPUT
+              DELTAT = DELTATS
+          END IF
 *     Terminate after optional COMMON save.
          if(rank.eq.0) THEN
             WRITE (6,65) TTOT*TSCALE, TOFF, TIME, TIME+TOFF,
