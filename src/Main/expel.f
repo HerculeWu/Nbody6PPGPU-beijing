@@ -274,29 +274,17 @@ cnew-abbas-26/07/2017
 *
 *       Correct neighbour forces & book the ejected mass energy (EMDOT),
 *       mirroring the KW1 < 10 branch (the old POTI/ECDOT entry booked
-*       the ejecta energy in ECDOT but skipped the force correction and
-*       used a potential including the binary interior potential well;
-*       FICORR/FCORR sum J = IFIRST..NTOT, excluding the KS components).
+*       the ejecta energy in ECDOT but skipped the force correction).
+*       Tidal terms of the ejecta are booked inside FICORR/FCORR for
+*       KZ(14) <= 4, exactly as on the KW1 < 10 branch; the old explicit
+*       XTRNLV block was dropped since for KZ(14) = 5 HT is the absolute
+*       galactic potential energy, which is not part of ETIDE/ETOT and
+*       hence injected a spurious DM*PHI_MW jump into ECDOT.
               IF (DM.GT.0.0) THEN
                   IF (DM*SMU.LT.0.05) THEN
                       CALL FICORR(I,DM)
                   ELSE
                       CALL FCORR(I,DM,0)
-                  END IF
-              END IF
-*
-*       See whether tidal terms should be included (standard or scaled).
-              IF (KZ(14).GT.0) THEN
-                  IF (KZ(14).LE.2) THEN
-                      ECDOT = ECDOT - 0.5d0*DM*(TIDAL(1)*X(1,I)**2 +
-     &                                          TIDAL(3)*X(3,I)**2)
-                  ELSE
-                      BODY(I) = BODY(I) + DM
-                      CALL XTRNLV(I,I)
-                      ECDOT = ECDOT + HT
-                      BODY(I) = BODY(I) - DM
-                      CALL XTRNLV(I,I)
-                      ECDOT = ECDOT - HT
                   END IF
               END IF
 *
