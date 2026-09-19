@@ -116,7 +116,7 @@ c$$$      end if
       IF (NCH.GT.0) THEN
          ETOT = ETOT + ECH
       END IF
-*     Update energies and form the relative error (divide by ZKIN or E(3)).
+*     Update energies & form the relative error (divide by ZKIN or ETOT).
       IF (TIME.LE.0.0D0) THEN
          DE = 0.0D0
          BE(1) = ETOT
@@ -128,7 +128,7 @@ c$$$      end if
          DE = BE(3) - BE(2)
          DELTA1 = DE
          DETOT = DETOT + DE
-         DE = DE/MAX(ZKIN,ABS(E(3)))
+         DE = DE/MAX(ZKIN,ABS(ETOT))
 *     Save sum of relative energy error for main output and accumulate DE.
          ERROR = ERROR + DE
          ERRTOT = ERRTOT + DE
