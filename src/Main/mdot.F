@@ -1330,7 +1330,27 @@ C            END IF
             RIJ2 = (X(1,ICOMP) - X(1,JCOMP))**2 +
      &             (X(2,ICOMP) - X(2,JCOMP))**2 +
      &             (X(3,ICOMP) - X(3,JCOMP))**2
-            IF (RIJ2.LT.RMIN22) THEN
+*       Check the terminated pair is still bound: re-regularizing an
+*       unbound post-kick orbit (H >= 0, SEMI <= 0, ECC2 >= 1) leaves an
+*       invalid KS solution and corrupts neighbour lists downstream.
+            VIJ2 = 0.0D0
+            RDV = 0.0D0
+            DO 56 L = 1,3
+               VIJ2 = VIJ2 + (XDOT(L,ICOMP) - XDOT(L,JCOMP))**2
+               RDV = RDV + (X(L,ICOMP) - X(L,JCOMP))*
+     &                     (XDOT(L,ICOMP) - XDOT(L,JCOMP))
+   56       CONTINUE
+            XMBIN = BODY(ICOMP) + BODY(JCOMP)
+            EREL = 0.5D0*VIJ2 - XMBIN/SQRT(RIJ2)
+            ECC2N = 1.0D0 + 2.0D0*EREL*(RIJ2*VIJ2 - RDV**2)/XMBIN**2
+            IF (RIJ2.LT.RMIN22.AND.EREL.GE.0.0D0) THEN
+               if(rank.eq.0)
+     &         WRITE(6,916) NAME(ICOMP), NAME(JCOMP),
+     &                      SQRT(ECC2N), EREL
+ 916           FORMAT(' MDOT KSREG SKIPPED: UNBOUND N1,2 e EREL ',
+     &                2I10,1P,2E11.3)
+            END IF
+            IF (RIJ2.LT.RMIN22.AND.EREL.LT.0.0D0) THEN
 *       Set temporary IPHASE > 0 for KSREG.
                IPHASE = 1
                IF(IPOLY.GE.0) IPOLY = 1

@@ -25,8 +25,11 @@
 *       Update membership (first member in NTTOT = ITAIL0).
       IF (NTAIL.EQ.0) THEN
           NSTAIL = 0
-*       Allow extra space for ten KS solutions.
-          ITAIL0 = NZERO + MIN(KMAX,NBIN0+10)
+*       Reserve the full KS c.m. range: new pairs are appended at
+*       NTOT = N + NPAIRS (ksreg.F) and NPAIRS may grow up to KMAX,
+*       so MIN(KMAX,NBIN0+10) would let late dynamical pairs overwrite
+*       the tail block.
+          ITAIL0 = NZERO + KMAX + 1
           NTTOT = ITAIL0 - 1
       END IF
 *
