@@ -272,9 +272,18 @@ cnew-abbas-26/07/2017
               KSTAR(I1) = -KSTAR(I1)
               CALL KICK(IPAIR,0,KW1,DM)
 *
-*       Include potential and kinetic energy corrections due to mass loss.
-              CALL POTI(I,POTJ)
-              ECDOT = ECDOT + DM*POTJ + 0.5d0*DM*VI2
+*       Correct neighbour forces & book the ejected mass energy (EMDOT),
+*       mirroring the KW1 < 10 branch (the old POTI/ECDOT entry booked
+*       the ejecta energy in ECDOT but skipped the force correction and
+*       used a potential including the binary interior potential well;
+*       FICORR/FCORR sum J = IFIRST..NTOT, excluding the KS components).
+              IF (DM.GT.0.0) THEN
+                  IF (DM*SMU.LT.0.05) THEN
+                      CALL FICORR(I,DM)
+                  ELSE
+                      CALL FCORR(I,DM,0)
+                  END IF
+              END IF
 *
 *       See whether tidal terms should be included (standard or scaled).
               IF (KZ(14).GT.0) THEN
@@ -350,6 +359,15 @@ cnew-abbas-26/07/2017
      &                         EREL
    37             FORMAT (' EXPEL KSREG SKIPPED: UNBOUND N1,2 e EREL ',
      &                    2I10,1P,2E11.3)
+*       KSTERM in the collision context (IPHASE >= 4) sets artificial
+*       steps 2*SMAX and stale force polynomials (ksterm.F:467-470),
+*       assuming immediate re-regularization; set fresh forces & steps.
+                  call delay_remove_tlist(ICOMP,STEP,DTK)
+                  call delay_remove_tlist(JCOMP,STEP,DTK)
+                  CALL FPOLY1_KS(ICOMP,JCOMP,2)
+                  CALL FPOLY2_KS(ICOMP,JCOMP,2)
+                  call delay_store_tlist(ICOMP)
+                  call delay_store_tlist(JCOMP)
                   GO TO 39
               END IF
 *       Initialize new KS polynomials after velocity kick.
