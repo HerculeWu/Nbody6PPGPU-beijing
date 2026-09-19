@@ -322,9 +322,37 @@ cnew-abbas-26/07/2017
               I = I1 + 2*(NPAIRS - IPAIR)
               CALL KSTERM
               CALL KICK(I,1,KW1,DM)
-*       Initialize new KS polynomials after velocity kick (H > 0 is OK).
               ICOMP = IFIRST
               JCOMP = IFIRST + 1
+*       Check the kicked pair is still bound: re-regularizing an unbound
+*       orbit (H > 0, SEMI < 0, ECC2 > 1) yields an invalid KS solution
+*       (NaN steps) and corrupts the integration downstream.
+              RIJ2 = (X(1,ICOMP) - X(1,JCOMP))**2 +
+     &               (X(2,ICOMP) - X(2,JCOMP))**2 +
+     &               (X(3,ICOMP) - X(3,JCOMP))**2
+              VIJ2 = (XDOT(1,ICOMP) - XDOT(1,JCOMP))**2 +
+     &               (XDOT(2,ICOMP) - XDOT(2,JCOMP))**2 +
+     &               (XDOT(3,ICOMP) - XDOT(3,JCOMP))**2
+              RDV = (X(1,ICOMP) - X(1,JCOMP))*
+     &              (XDOT(1,ICOMP) - XDOT(1,JCOMP)) +
+     &              (X(2,ICOMP) - X(2,JCOMP))*
+     &              (XDOT(2,ICOMP) - XDOT(2,JCOMP)) +
+     &              (X(3,ICOMP) - X(3,JCOMP))*
+     &              (XDOT(3,ICOMP) - XDOT(3,JCOMP))
+              XMBIN = BODY(ICOMP) + BODY(JCOMP)
+              EREL = 0.5D0*VIJ2 - XMBIN/SQRT(RIJ2)
+              ECC2N = 1.0D0 + 2.0D0*EREL*(RIJ2*VIJ2 - RDV**2)/XMBIN**2
+              IF (EREL.GE.0.0D0) THEN
+*       Leave the disrupted pair unregularized as two single stars.
+                  IPHASE = -1
+                  if(rank.eq.0)
+     &            WRITE (6,37) NAME(ICOMP), NAME(JCOMP), SQRT(ECC2N),
+     &                         EREL
+   37             FORMAT (' EXPEL KSREG SKIPPED: UNBOUND N1,2 e EREL ',
+     &                    2I10,1P,2E11.3)
+                  GO TO 39
+              END IF
+*       Initialize new KS polynomials after velocity kick.
               CALL KSREG
               IPHASE = -1
 *
@@ -338,6 +366,7 @@ cnew-abbas-26/07/2017
    35             FORMAT (' WD/NS BINARY    KW R/A A M V ',
      &                                      I4,3F11.2,3F11.1)
               END IF
+   39         CONTINUE
           ELSE
 *       Set new binary indicator and Roche look-up time (ECC > 0 is OK).
               KSTAR(I) = 0
