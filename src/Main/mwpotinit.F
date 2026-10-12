@@ -6,6 +6,7 @@
 *     
       implicit none
       INCLUDE 'MWpotential.h'
+      INCLUDE 'tidaltiles_units.h'
       REAL*8 F_MW_UNIT, XI(3), VI(3), FI(3),FDI(3), FRI
       REAL*8 RSCALE, VSCALE, TSCALE
 
@@ -27,7 +28,7 @@
       H_NORM = 0.35D0
 
 *     Normalization
-      F_MW_UNIT = 6.32793804994D0 ! pc/Myr^2
+      F_MW_UNIT = (220.0D0*TT_KMS_PCMYR)**2/8000.0D0
       XI(1)=8.0D0               ! kpc
       XI(2)=0.0
       XI(3)=0.0
@@ -46,7 +47,9 @@
 
 *     scale from NB to Astronomical units
       R_KPC = RSCALE/1000.0D0   ! kpc
-      V_PcMyr = VSCALE*1.02269032D0 ! km/s->pc/Myr
+*     Jerk must differentiate along dx_N/dt_N, not a separate km/s
+*     approximation. Keep VSCALE in the interface for existing callers.
+      V_PcMyr = RSCALE/TSCALE   ! pc/Myr
       F_PcMyr2 = RSCALE/(TSCALE*TSCALE) ! pc/Myr^2
       FD_PcMyr3= F_PcMyr2/TSCALE*1000.0D0 ! pc/Myr^3
       P_kpcPcMyr2= F_PcMyr2*R_KPC !pc^2/Myr^2

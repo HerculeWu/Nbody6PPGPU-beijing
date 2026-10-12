@@ -5,6 +5,7 @@
 *       ---------------------
 *
       INCLUDE 'common6.h'
+      INCLUDE 'tidaltiles_units.h'
       NAMELIST /INSCALE/ Q,VXROT,VZROT,RTIDE
       LOGICAL LSCALE
 *      Scaling if initial model is constructed or King model is read
@@ -79,7 +80,7 @@
 *
       GRAV = 1.0D0
 *     Astronomical unit in non-scaled input data
-      IF (LSCALE) GRAV = 4.30145D-3*ZMBAR*FLOAT(N)
+      IF (LSCALE) GRAV = TT_G_KMS*ZMBAR*FLOAT(N)
       
 *     --10/22/13 17:12-lwang-binary-scale-------------------------------*
 ***** Note:------------------------------------------------------------**

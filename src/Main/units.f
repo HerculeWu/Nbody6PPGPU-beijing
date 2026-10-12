@@ -5,11 +5,12 @@
 *       ------------------------------------------
 *
       INCLUDE 'common6.h'
+      INCLUDE 'tidaltiles_units.h'
 *
 *
-*       Define GM & PC in cgs units and #AU in pc (2008 IAU values).
-      GM = 6.6743D-08*1.9884D+33
-      PC = 3.0856776D+18
+*       Derive cgs constants from the common pc-Msun-Myr contract.
+      PC = TT_PC_CM
+      GM = TT_G_KMS*PC*1.0D10
       AU = PC/1.4959787D+13  ! bug fix from D+12 4/7/11 (was OK in 2009).
 *
 *       Form scaling factors for binary periods A*SQRT(A/M) to yrs and days.
@@ -23,11 +24,9 @@
 *       Copy solar mass scaling to new variable (M = BODY*<M>).
       SMU = ZMBAR
 *
-*     Form time scale in seconds and velocity scale in km/sec.
-      TSTAR = SQRT(PC/GM)*PC
-      VSTAR = 1.0D-05*SQRT(GM/PC)
-*     Convert time scale from units of seconds to million years.
-      TSTAR = TSTAR/(3.15D+07*1.0D+06)
+*     Time in Julian Myr and velocity in km/s; R/T = V*c exactly.
+      TSTAR = 1.0D0/SQRT(TT_G_PCMYR)
+      VSTAR = SQRT(TT_G_KMS)
 
       IF (KZ(22).LT.10.AND.KZ(19).LT.4) THEN
 *
@@ -47,6 +46,10 @@
 *
 *       Copy TSTAR to secondary time-scale factor.
       TSCALE = TSTAR
+*     Runtime provenance: never infer this version from the runner.
+      if(rank.eq.0) WRITE (6,*) 'TIDALTILES_UNIT_CONTRACT ',
+     &     TT_UNIT_VERSION,' G_PCMYR=',TT_G_PCMYR,
+     &     ' KMS_TO_PCMYR=',TT_KMS_PCMYR
 *
 *       Physical scaling: X, M, V, T from RBAR*X, ZMBAR*M, VSTAR*V, TSTAR*T.
       if(rank.eq.0)
