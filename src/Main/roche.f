@@ -73,6 +73,7 @@
           J = I2
     5 CONTINUE
 *
+      RTOL = 1.D-02
 *       Determine indices for primary & secondary star (donor & accretor).
       IF (RAD(1)/ROL(1).GE.RAD(2)/ROL(2)) THEN
           J1 = I1
@@ -94,7 +95,7 @@
       END IF
 *
 *       Exit if physical radius is smaller than Roche radius.
-      IF (RAD(1).LE.RL1) THEN
+      IF (RAD(1)*(1.D0-RTOL).LE.RL1) THEN
           TEV(I) = TIME + STEP(I)
           GO TO 200
       ELSE
@@ -243,8 +244,8 @@
      &              (X(2,I) - RDENS(2))**2 +
      &              (X(3,I) - RDENS(3))**2)
           VI = SQRT(XDOT(1,I)**2+XDOT(2,I)**2+XDOT(3,I)**2)
-          XOSPN1 = OSPIN(J1)/SPNFAC
-          XOSPN2 = OSPIN(J2)/SPNFAC
+          XOSPN1 = OSPIN(1)/SPNFAC
+          XOSPN2 = OSPIN(2)/SPNFAC
           TPHYS = TTOT*TSTAR
           AGE = TPHYS - EPOCH(I)
           WHICH =' NEW ROCHE  '
@@ -487,14 +488,14 @@
           if(rank.eq.0)
      &    WRITE (6,20)  TTOT,NAME(J1),NAME(J2),
      &         NAME(I),KW1,KW2,KSTAR(I),
-     &         IPAIR,DTAU(IPAIR),BODY(J1),BODY(J2),R(IPAIR),
+     &         IPAIR,DTAU(IPAIR),TPHYS,BODY(J1),BODY(J2),R(IPAIR),
      &         ECC,SEMI,EB,TK,H(IPAIR),GAMMA(IPAIR),
      &         STEP(I),LIST(1,J1),LIST(1,I),
      &         MASS0(1:2),MASS(1:2),MASSC(1:2),RI,VI,R(IPAIR)*SU,
      &         RAD(1),RAD(2),ROL(1),ROL(2),SEP,RL1
  20      FORMAT (/,' NEW CE   TIME[NB]',1P,E17.10,' NM1,2,S=',
      &         3I10,' KW1,2,S=',3I4,' IPAIR',I9,' DTAU',E13.5,
-     &         ' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
+     &         ' T[Myr] ',E13.5, ' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
      &         ' e,a,eb[NB]=',3E13.5,' P[d]=',E13.5,' H',E13.5,
      &         ' GAMMA',1P,E13.5,' STEP(ICM)',E13.5,' NPERT',I5,
      &         ' NB(ICM)',I5,' M0(1,2) M(1:2) MC(1:2) ',6E13.5,
@@ -508,14 +509,14 @@
           if(rank.eq.0)
      &    WRITE (6,25)  TTOT,NAME(J1),NAME(J2),
      &         NAME(I),KW1,KW2,KSTAR(I),
-     &         IPAIR,DTAU(IPAIR),BODY(J1),BODY(J2),R(IPAIR),
+     &         IPAIR,DTAU(IPAIR),TPHYS,BODY(J1),BODY(J2),R(IPAIR),
      &         ECC,SEMI,EB,TK,H(IPAIR),GAMMA(IPAIR),
      &         STEP(I),LIST(1,J1),LIST(1,I),
      &         MASS0(1:2),MASS(1:2),MASSC(1:2),RI,VI,R(IPAIR)*SU,
      &         RAD(1),ROL(1),RAD(2),ROL(2),SEP,RL1
  25      FORMAT (/,' END CE   TIME[NB]',1P,E17.10,' NM1,2,S=',
      &         3I10,' KW1,2,S=',3I4,' IPAIR',I9,' DTAU',E13.5,
-     &         ' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
+     &         ' T[Myr] ',E13.5,' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
      &         ' e,a,eb[NB]=',3E13.5,' P[d]=',E13.5,' H',E13.5,
      &         ' GAMMA',1P,E13.5,' STEP(ICM)',E13.5,' NPERT',I5,
      &         ' NB(ICM)',I5,' M0(1,2) M(1:2) MC(1:2) ',6E13.5,
@@ -1215,14 +1216,14 @@
           if(rank.eq.0) THEN
             WRITE (6,77) WHICH,TTOT,NAME(J1),NAME(J2),
      &         NAME(I),KW1,KW2,KSTAR(I),
-     &         IPAIR,DTAU(IPAIR),BODY(J1),BODY(J2),R(IPAIR),
+     &         IPAIR,DTAU(IPAIR),TPHYS,BODY(J1),BODY(J2),R(IPAIR),
      &         ECC,SEMI,EB,TK,H(IPAIR),GAMMA(IPAIR),
      &         STEP(I),LIST(1,J1),LIST(1,I),
      &         MASS0(1:2),MASS(1:2),MASSC(1:2),RI,VI,R(IPAIR)*SU,
      &         RAD(1:2),ROL(1:2),DM1,DM2,DTM,AGE,COALS,IXXX
   77        FORMAT (A12,'  TIME[NB]',1P,E17.10,' NM1,2,S=',
      &         3I10,' KW1,2,S=',3I4,' IPAIR',I9,' DTAU',E13.5,
-     &         ' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
+     &         ' T[Myr] ',E13.5,' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
      &         ' e,a,eb[NB]=',3E13.5,' P[d]=',E13.5,' H',E13.5,
      &         ' GAMMA',1P,E13.5,' STEP(ICM)',E13.5,' NPERT',I5,
      &         ' NB(ICM)',I5,' M0(1:2) M(1:2) MC(1:2)[*]',6E13.5,
@@ -1596,7 +1597,7 @@
 *
 * See whether the primary still fills its Roche lobe.
 *
-      IF(RAD(1).GT.ROL(1))THEN
+      IF(RAD(1)*(1.D0-RTOL).GT.ROL(1))THEN
 *
 * Test for a contact system.
 *
@@ -1645,21 +1646,21 @@
           ITER = ITER + 1
           IF(TEV0(I).LT.TIME) GOTO 10
           IF (ITER.EQ.1.AND.GAMMA(IPAIR).LT.GMIN) GO TO 10
-      ELSE
+      ELSE IF (RAD(1)*(1.D0+RTOL).LT.ROL(1)) THEN
           TPHYS = TTOT*TSTAR
           AGE = TPHYS - EPOCH(I)
           WHICH = ' END ROCHE  '
           if(rank.eq.0) THEN
              WRITE (6,76) WHICH,TTOT,NAME(J1),NAME(J2),
      &           NAME(I),KW1,KW2,KSTAR(I),
-     &           IPAIR,DTAU(IPAIR),BODY(J1),BODY(J2),R(IPAIR),
+     &           IPAIR,DTAU(IPAIR),TPHYS,BODY(J1),BODY(J2),R(IPAIR),
      &           ECC,SEMI,EB,TK,H(IPAIR),GAMMA(IPAIR),
      &           STEP(I),LIST(1,J1),LIST(1,I),
      &           MASS0(1:2),MASS(1:2),MASSC(1:2),RI,VI,R(IPAIR)*SU,
      &           RAD(1:2),ROL(1:2),DM1,DM2,DTM
   76        FORMAT (A12,'  TIME[NB]',1P,E17.10,' NM1,2,S=',
      &           3I10,' KW1,2,S=',3I4,' IPAIR',I9,' DTAU',E13.5,
-     &           ' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
+     &           ' T[Myr] ',E13.5,' M1,2[NB]',2E13.5,' R12[NB]',E13.5,
      &           ' e,a,eb[NB]=',3E13.5,' P[d]=',E13.5,' H',E13.5,
      &           ' GAMMA',1P,E13.5,' STEP(ICM)',E13.5,' NPERT',I5,
      &           ' NB(ICM)',I5,' M0(1:2) M(1:2) MC(1:2)[*]',6E13.5,
