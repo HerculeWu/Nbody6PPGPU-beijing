@@ -12,6 +12,11 @@
       INTEGER KLIST(NMAX)
 #endif
       REAL*8  XI(3),XIDOT(3),DX(3),DV(3),FIRR(3),FREG(3),FD(3),FDR(3)
+*     LISTFIX-B1: counter and cap of diagnostic lines (see label 351).
+      INTEGER NLFXB,MLFXB
+      PARAMETER (MLFXB = 200)
+      SAVE NLFXB
+      DATA NLFXB /0/
 *
 *
       ICM = 1
@@ -244,6 +249,9 @@
   350 IF (LISTV(1).EQ.0.OR.ICM.EQ.-1) GO TO 355
       L = 2
   351 J = LISTV(L)
+*       LISTFIX-B1: skip stale members (outside IFIRST..NTOT or ghosts).
+      IF (J.LT.IFIRST.OR.J.GT.NTOT) GO TO 352
+      IF (BODY(J).EQ.0.0D0) GO TO 352
       IF (J.EQ.I) GO TO 354
       A1 = X(1,J) - XI(1)
       A2 = X(2,J) - XI(2)
@@ -334,6 +342,21 @@
 *
 *       Include body #J in the neighbour list.
       GO TO 345
+*
+*       LISTFIX-B1: report the skipped LISTV member (rate-limited).
+  352 CONTINUE
+!$omp critical(listfix)
+      NLFXB = NLFXB + 1
+      IF (NLFXB.LE.MLFXB) THEN
+          WRITE (6,901)  I, NAME(I), J, L, LISTV(1), NTOT, IFIRST,
+     &                   TIME, rank
+  901     FORMAT (' LISTFIX-B1 SKIP LISTV  I NAME J L NV NTOT IFIRST',
+     &            ' TIME RANK ',I8,I12,I12,4I8,1P,E24.15,0P,I5)
+          IF (NLFXB.EQ.MLFXB) WRITE (6,902)
+  902     FORMAT (' LISTFIX-B1 further messages suppressed')
+          CALL FLUSH(6)
+      END IF
+!$omp end critical(listfix)
 *
   354 L = L + 1
       IF (L.LE.LISTV(1) + 1) GO TO 351
