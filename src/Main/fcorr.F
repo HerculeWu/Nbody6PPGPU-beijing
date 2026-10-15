@@ -7,7 +7,7 @@
       INCLUDE 'common6.h'
       INCLUDE 'omp_lib.h'
       REAL*8  A(6),VOLD(3)
-      LOGICAL IKICK
+      LOGICAL IKICK,IKICK1
 *      REAL*8  XBACK(3,LMAX),XDBACK(3,LMAX)
 *
 *
@@ -21,11 +21,14 @@
     1 CONTINUE
 *
 *       Include velocity kick in case of new WD, NS, BH or massless SN.
+      IKICK1 = .FALSE.
       IF (KW.GE.10.AND.KW.LE.15) THEN
           IKICK = .TRUE.
 *       Distinguish between single star (first time only) and binary.
           IF (I.LE.N.AND.KW.NE.KSTAR(I)) THEN
               CALL KICK(I,1,KW,DM)
+*       Note velocity kick of single star (steps of neighbours halved below).
+              IKICK1 = .TRUE.
           ELSE IF (I.GT.N) THEN
               IPAIR = I - N
               CALL KICK(IPAIR,0,KW,DM)
@@ -126,13 +129,7 @@ c$$$      END DO
                       D1(K,J) = D1(K,J) - A(K+3)
                       FIDOT(K,J) = FIDOT(K,J) - A(K+3)
    20             CONTINUE
-c$$$                  IF(IKICK.AND.T0(J)+0.5D0*STEP(J).GE.TBLOCK) THEN
-c$$$                     STEP(J) = 0.5D0*STEP(J)
-c$$$                     IF(T0(J)+0.5D0*STEP(J).GE.TBLOCK) THEN
-c$$$                        STEP(J) = 0.5D0*STEP(J)
-c$$$                     END IF
-c$$$                     TIMENW(J) = T0(J) + STEP(J)
-c$$$                  END IF
+*       Step halving after a kick is done below the parallel loop.
 
 *     --03/19/14 22:48-lwang-debug--------------------------------------*
 ***** Note:------------------------------------------------------------**
@@ -177,8 +174,53 @@ c$$$         X0DOT(2,IL) = XDBACK(2,II)
 c$$$         X0DOT(3,IL) = XDBACK(3,II)
 c$$$      END DO
 *
+*       Reduce steps of bodies near a kicked single star (cf. KICK2, SHRINK).
+*       Done here, outside the parallel loop, since NXTLST is modified.
+      DVK2 = 0.0D0
+      DO 52 K = 1,3
+          DVK2 = DVK2 + (XDOT(K,I) - VOLD(K))**2
+   52 CONTINUE
+      IF (.NOT.IKICK1.OR.BODY(I).EQ.0.0D0.OR.DVK2.EQ.0.0D0) GO TO 62
+      NNB = LIST(1,I)
+      DO 60 J = IFIRST,NTOT
+          IF (J.EQ.I.OR.BODY(J).EQ.0.0D0) GO TO 60
+*       Irregular step of #J if #I is a neighbour of #J (as NBODY6 FCORR).
+          NNB1 = LIST(1,J) + 1
+          DO 54 L = 2,NNB1
+              IF (LIST(L,J).EQ.I) THEN
+                  DO 53 IT = 1,2
+                      IF (T0(J) + 0.5D0*STEP(J).GT.TBLOCK) THEN
+                          call delay_remove_tlist(J,STEP,DTK)
+                          STEP(J) = 0.5D0*STEP(J)
+                          call delay_store_tlist(J)
+                          TIMENW(J) = T0(J) + STEP(J)
+                      END IF
+   53             CONTINUE
+                  GO TO 60
+              END IF
+   54     CONTINUE
+*       Regular step of #J if #J is a neighbour of #I but not vice versa.
+          DO 58 L = 2,NNB+1
+              IF (LIST(L,I).EQ.J) THEN
+                  DO 56 IT = 1,2
+                      IF (T0R(J) + 0.5D0*STEPR(J).GT.TBLOCK) THEN
+                          STEPR(J) = 0.5D0*STEPR(J)
+*       Keep STEP <= STEPR (then T0 = T0R, so T0 + STEP/2 > TBLOCK holds).
+                          IF (STEP(J).GT.STEPR(J)) THEN
+                              call delay_remove_tlist(J,STEP,DTK)
+                              STEP(J) = 0.5D0*STEP(J)
+                              call delay_store_tlist(J)
+                              TIMENW(J) = T0(J) + STEP(J)
+                          END IF
+                      END IF
+   56             CONTINUE
+                  GO TO 60
+              END IF
+   58     CONTINUE
+   60 CONTINUE
+*
 *       Update the potential and kinetic energy loss.
-      EMDOT = EMDOT - DM*POTJ + 0.5*DM*VI2
+   62 EMDOT = EMDOT - DM*POTJ + 0.5*DM*VI2
 *
 *       Modify energy loss further for c.m. body (exclude Roche cases).
       IF (I.GT.N.AND.KSTAR(I).LE.10) THEN
