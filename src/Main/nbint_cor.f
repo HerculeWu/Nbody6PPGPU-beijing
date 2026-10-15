@@ -263,3 +263,93 @@ c$$$      end if
       RETURN
 *
       END
+*
+      SUBROUTINE FRZPRB(TMIN)
+*
+*     Diagnostic probe for issue #8 (block time no longer advancing).
+*     Active only with NB6_FROZEN_PROBE=1 in the environment.  Prints
+*     every active body with STEP < 1e-10 or a NaN STEP/T0 once, and if
+*     the block time has not increased for 2000 consecutive blocks (or is
+*     NaN) prints the state of the active block and stops the run.
+*
+      INCLUDE 'common6.h'
+      INCLUDE 'tlist.h'
+      REAL*8 TMIN, TLAST
+      INTEGER NFROZ, NWPR, IWPR(NMAX)
+      LOGICAL INIT, ON
+      CHARACTER*8 CENV
+      SAVE TLAST, NFROZ, NWPR, IWPR, INIT, ON
+      DATA TLAST /-1.0D0/, NFROZ /0/, NWPR /0/, IWPR /NMAX*0/
+      DATA INIT /.FALSE./, ON /.FALSE./
+*
+      IF (.NOT.INIT) THEN
+         INIT = .TRUE.
+         CALL GETENV('NB6_FROZEN_PROBE', CENV)
+         ON = CENV(1:1).EQ.'1'
+         IF (ON.AND.rank.eq.0) WRITE (6,*) ' FRZPRB: probe enabled'
+      END IF
+      IF (.NOT.ON) RETURN
+*
+      DO L = 1, MIN(NXTLEN,50)
+         I = NXTLST(L)
+         IF ((STEP(I).LT.1.0D-10.OR.ISNAN(STEP(I)+T0(I))).AND.
+     &       IWPR(I).EQ.0.AND.NWPR.LT.200) THEN
+            IWPR(I) = 1
+            NWPR = NWPR + 1
+            CALL FRZBDY(' FRZPRB SMALLSTEP', I, TMIN)
+         END IF
+      END DO
+      IF (ISNAN(TMIN)) THEN
+         NFROZ = 2000
+      ELSE IF (TMIN.LE.TLAST) THEN
+         NFROZ = NFROZ + 1
+      ELSE
+         NFROZ = 0
+      END IF
+      TLAST = TMIN
+      IF (NFROZ.GE.2000) THEN
+         WRITE (6,901) TMIN, TIME, TPREV, TBLOCK, NXTLEN, NXTLEVEL,
+     &        NPAIRS, NTOT, IFIRST, IPHASE, IKS, ICOMP, JCOMP, NSUB, NCH
+  901    FORMAT (' FRZPRB FROZEN TMIN TIME TPREV TBLOCK',1P,4E24.16,
+     &        0P,' NXTLEN NXTLEVEL NPAIRS NTOT IFIRST IPHASE IKS ICOMP',
+     &        ' JCOMP NSUB NCH',11I12)
+         DO L = 1, MIN(NXTLEN,40)
+            CALL FRZBDY(' FRZPRB ACTIVE', NXTLST(L), TMIN)
+         END DO
+         CALL FLUSH(6)
+         STOP
+      END IF
+      RETURN
+      END
+*
+      SUBROUTINE FRZBDY(TAG, I, TMIN)
+*     Print the state of body I and its nearest body (FRZPRB).
+      INCLUDE 'common6.h'
+      CHARACTER*(*) TAG
+      REAL*8 TMIN
+      RM2 = 1.0D30
+      JM = I
+      DO J = IFIRST, NTOT
+         IF (J.EQ.I) CYCLE
+         RR = (X(1,J)-X(1,I))**2 + (X(2,J)-X(2,I))**2 +
+     &        (X(3,J)-X(3,I))**2
+         IF (RR.LT.RM2) THEN
+            RM2 = RR
+            JM = J
+         END IF
+      END DO
+      WRITE (6,901) TAG, TMIN, I, NAME(I), KSTAR(I), BODY(I), STEP(I),
+     &     STEPR(I), T0(I), T0R(I), X(1:3,I), XDOT(1:3,I)
+  901 FORMAT (A,1P,E24.16,0P,' I NAME K*',3I8,1P,' M',E12.4,
+     &     ' STEP STEPR T0 T0R',2E12.4,2E24.16,' X',3E12.4,' V',3E12.4)
+      WRITE (6,902) LIST(1,I), RS(I), F(1:3,I), FDOT(1:3,I),
+     &     FI(1:3,I), FR(1:3,I)
+  902 FORMAT ('    NNB RS',I5,1P,E11.3,' F',3E11.3,' FDOT',3E11.3,
+     &     ' FI',3E11.3,' FR',3E11.3)
+      WRITE (6,903) JM, NAME(JM), KSTAR(JM), BODY(JM), SQRT(RM2),
+     &     STEP(JM), T0(JM)
+  903 FORMAT ('    nearest J NAME K*',3I8,1P,' M',E12.4,' R',E12.4,
+     &     ' STEP',E12.4,' T0',E24.16)
+      CALL FLUSH(6)
+      RETURN
+      END

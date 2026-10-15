@@ -231,6 +231,9 @@
 
 *     Determine NXTLEN, TMIN and NXTLEVEL
       call next_tlist(TMIN,DTK,T0)
+*     Optional probe for a frozen block time (#8), off unless the
+*     environment variable NB6_FROZEN_PROBE is set to 1.
+      CALL FRZPRB(TMIN)
 #ifdef DEBUG
 *     --07/07/14 23:44-lwang-debug--------------------------------------*
 ***** Note: Check time step--------------------------------------------**
