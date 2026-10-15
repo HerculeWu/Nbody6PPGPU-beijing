@@ -403,6 +403,11 @@ c		Sambaran 2019.11.19.
 *       Skip case of zero kick velocity.
       IF (VKICK.EQ.0.0D0.OR.DISP0.EQ.0.0D0) then
          WHICH1 = ' ZERO VELOCITY KICK:'
+*       Velocity unchanged: print the current speed as VI = VF and VKICK
+*       in the N-body units of the kick branch (diagnostic line only).
+         VKICK = VKICK/VSTAR
+         VI2 = XDOT(1,I)**2 + XDOT(2,I)**2 + XDOT(3,I)**2
+         VF2 = VI2
          GO TO 25
       ENDIF
 *
