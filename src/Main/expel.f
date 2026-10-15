@@ -281,7 +281,10 @@ cnew-abbas-26/07/2017
                   IF (KZ(14).LE.2) THEN
                       ECDOT = ECDOT - 0.5d0*DM*(TIDAL(1)*X(1,I)**2 +
      &                                          TIDAL(3)*X(3,I)**2)
-                  ELSE
+*       KZ(14) = 5 or 9: the field enters ETOT only through the ETIDE work
+*       (XTRNLV gives the absolute Galactic potential there), so no term,
+*       as for single-star mass loss in FCORR/FICORR.
+                  ELSE IF (KZ(14).LE.4) THEN
                       BODY(I) = BODY(I) + DM
                       CALL XTRNLV(I,I)
                       ECDOT = ECDOT + HT
