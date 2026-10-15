@@ -6,6 +6,11 @@
 *
       INCLUDE 'common6.h'
       LOGICAL FUPDATE
+*     LISTFIX-C: counter and cap of diagnostic lines.
+      INTEGER NLFXC,MLFXC
+      PARAMETER (MLFXC = 200)
+      SAVE NLFXC
+      DATA NLFXC /0/
 *
 *     Get index of ipair c.m. and components
       IPAIRCM = N + IPAIR
@@ -29,7 +34,13 @@
 *****     where one c.m. particle is replaced by two KS components.
 c$$$          IF (LIST(2,J).GT.ILAST) GO TO 50
 c$$$          IF (LIST(2,J).GT.ILAST.OR.BODY(J).EQ.0.0D0) GO TO 50
-         IF (BODY(J).EQ.0.0D0) GO TO 10
+*     LISTFIX-B3: a zero-mass ghost keeps no list (a skipped list goes
+*     stale). The new singles ICOMP & JCOMP are always renamed: KSTERM
+*     uses the ICOMP list right after this call, whatever its mass.
+         IF (BODY(J).EQ.0.0D0.AND.J.NE.ICOMP.AND.J.NE.JCOMP) THEN
+            LIST(1,J) = 0
+            GO TO 10
+         END IF
          NNB = LIST(1,J) + 1
          IF (NNB.EQ.1) GO TO 10
 
@@ -227,8 +238,33 @@ c$$$          IF (LIST(2,J).GT.ILAST.OR.BODY(J).EQ.0.0D0) GO TO 50
                CALL FLUSH(6)
                CALL abort()
             END IF
+*     LISTFIX-C: no room for both components (the shifts below write
+*     up to LIST(1,J)+2, i.e. into LIST(1,J+1) if LIST(1,J) >= LMAX-1).
+*     Drop the c.m. without inserting the components and shrink RS.
+            IF(LIST(1,J).GE.LMAX-3) THEN
+*     With both c.m. present the IPAIRCM entry now stands for the old
+*     ilast c.m., so the ILASTCM entry is the one to drop.
+               IDROP = ID_IPAIRCM
+               IF(ID_ILASTCM.GT.0) IDROP = ID_ILASTCM
+               DO L = IDROP, NNB-1
+                  LIST(L,J) = LIST(L+1,J)
+               END DO
+               LIST(1,J) = LIST(1,J) - 1
+               RS(J) = 0.9D0*RS(J)
+               NLFXC = NLFXC + 1
+               IF(NLFXC.LE.MLFXC) THEN
+                  WRITE (6,901) J, NAME(J), IPAIR, LIST(1,J)+1, IDROP,
+     &                 NTOT, IFIRST, TIME, rank
+  901             FORMAT (' LISTFIX-C DROP CM  J NAME IPAIR NB0 IDROP',
+     &                 ' NTOT IFIRST TIME RANK ',I8,I12,5I8,1P,E24.15,
+     &                 0P,I5)
+                  IF(NLFXC.EQ.MLFXC) WRITE (6,902)
+  902             FORMAT (' LISTFIX-C further messages suppressed')
+                  CALL FLUSH(6)
+               END IF
+               FUPDATE = .true.
 *     Case the ilast c.m. is also in the list
-            IF(ID_ILASTCM.GT.0) THEN
+            ELSE IF(ID_ILASTCM.GT.0) THEN
                LIST(ILASTLIMIT+2:ID_ILASTCM+1,J) =
      &              LIST(ILASTLIMIT:ID_ILASTCM-1,J)
                LIST(ILASTLIMIT,J) = I1_ILAST
@@ -374,19 +410,23 @@ c$$$         END IF
       END IF
 *
 *       Update list of high velocity particles containing c.m. members.
- 110  L = 2
- 125  IF (LISTV(L).EQ.IPAIRCM) THEN
+*     LISTFIX-B2: replace a removed member by the last one of LISTV
+*     (count LISTV(1), not NNB of LISTR/LISTD); test the slot again.
+ 110  NNBV = LISTV(1)
+      L = 2
+ 125  IF (L.GT.NNBV+1) GO TO 135
+      IF (LISTV(L).EQ.IPAIRCM) THEN
 *     Remove old c.m.
-         LISTV(L) = LISTV(NNB+1)
-         LISTV(1) = LISTV(1) - 1
-         GO TO 130
-      END IF
-*     Replace ilast c.m. to new position (ipair c.m.)
- 130  IF(LISTV(L).EQ.ILASTCM) LISTV(L) = IPAIRCM
-      IF(L.LT.LISTV(1)+1) THEN
-         L = L + 1
+         LISTV(L) = LISTV(NNBV+1)
+         NNBV = NNBV - 1
+         LISTV(1) = NNBV
          GO TO 125
       END IF
+*     Replace ilast c.m. to new position (ipair c.m.)
+      IF(LISTV(L).EQ.ILASTCM) LISTV(L) = IPAIRCM
+      L = L + 1
+      GO TO 125
+ 135  CONTINUE
 *
       RETURN
 *

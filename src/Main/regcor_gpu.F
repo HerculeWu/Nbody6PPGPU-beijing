@@ -16,6 +16,11 @@ C     &                LISTC(LMAX)
 *     REAL*8  DFI(3),DFRG(3)
       LOGICAL lnan
 *      LOGICAL LCHECK
+*     LISTFIX-A: counter and cap of diagnostic lines (see label 50).
+      INTEGER NLFXA,MLFXA
+      PARAMETER (MLFXA = 200)
+      SAVE NLFXA
+      DATA NLFXA /0/
 *
 *     Mass weighted neighbor list criterion flag
       IF(KZ(39).EQ.2.OR.KZ(39).EQ.3) M_FLAG = 1
@@ -251,6 +256,50 @@ c$$$          call flush(6)
 *       Find loss or gain of neighbours at the same time.
    50 NBLOSS = 0
       NBGAIN = 0
+*
+*       LISTFIX-A: keep only valid indices 1..NTOT in the old list.
+*       Old lists may hold KS components (J < IFIRST, cf. FPCORR), but a
+*       stale J > NTOT drives LG past the NTOT + 1 terminator below.
+*       Nothing is written when the old list is valid.
+      IF (NNB0.LT.0.OR.NNB0.GT.LMAX-1) THEN
+!$omp critical(listfix)
+          NLFXA = NLFXA + 1
+          IF (NLFXA.LE.MLFXA) THEN
+              WRITE (6,901)  I, NAME(I), NNB0, NTOT, IFIRST, TIME, rank
+  901         FORMAT (' LISTFIX-A BAD NNB0  I NAME NNB0 NTOT IFIRST',
+     &                ' TIME RANK ',I8,I12,3I8,1P,E24.15,0P,I5)
+              IF (NLFXA.EQ.MLFXA) WRITE (6,903)
+              CALL FLUSH(6)
+          END IF
+!$omp end critical(listfix)
+          NNB0 = 0
+          LIST(1,I) = 0
+      END IF
+      LL = 1
+      DO 51 L = 2,NNB0+1
+          J = LIST(L,I)
+          IF (J.LT.1.OR.J.GT.NTOT) THEN
+!$omp critical(listfix)
+              NLFXA = NLFXA + 1
+              IF (NLFXA.LE.MLFXA) THEN
+                  WRITE (6,902)  I, NAME(I), J, NTOT, IFIRST, NNB0,
+     &                           TIME, rank
+  902             FORMAT (' LISTFIX-A DROP  I NAME J NTOT IFIRST NNB0',
+     &                    ' TIME RANK ',I8,I12,I12,3I8,1P,E24.15,0P,I5)
+                  IF (NLFXA.EQ.MLFXA) WRITE (6,903)
+  903             FORMAT (' LISTFIX-A further messages suppressed')
+                  CALL FLUSH(6)
+              END IF
+!$omp end critical(listfix)
+          ELSE
+              LL = LL + 1
+              IF (LL.LT.L) LIST(LL,I) = J
+          END IF
+   51 CONTINUE
+      IF (LL.LE.NNB0) THEN
+          NNB0 = LL - 1
+          LIST(1,I) = NNB0
+      END IF
 *
 *       Check case of zero old or new membership (skip if both are zero).
       IF (NNB0.EQ.0) THEN
