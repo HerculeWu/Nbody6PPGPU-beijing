@@ -344,7 +344,9 @@ C*       remove from NXTLST (In binary, not needed)
           IPHASE = -3
 *
 *       Initialize new polynomials of neighbours & #I1 for DM > 0.1 DMSUN.
-          IF (DM*ZMBAR.GT.0.1) THEN
+*       Also after a velocity kick of #I1 in FCORR (KSTAR(I1) still old).
+          IF (DM*ZMBAR.GT.0.1.OR.(KW.GE.10.AND.KW.LE.14.AND.
+     &        KW.NE.KSTAR(I1))) THEN
 *
 *       Include body #I1 at the end (counting from location #2).
               NNB2 = NNB + 2
