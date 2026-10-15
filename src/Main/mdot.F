@@ -1180,6 +1180,25 @@ C            END IF
                CALL FCORR(I,DM,KW)
                call cputim(tttfib)
                if(rank.eq.0)ttfc = ttfc + (tttfib-tttfia)*60.
+*
+*       New polynomial & steps for single star kicked in FCORR (cf. EXPEL).
+*       (Same condition as in FCORR; KSTAR(I) is still the old type.)
+               IF (I.LE.N.AND.KW.NE.KSTAR(I).AND.
+     &             KW.GE.10.AND.KW.LE.14) THEN
+                  DO 39 KK = 1,3
+                     X0(KK,I) = X(KK,I)
+                     X0DOT(KK,I) = XDOT(KK,I)
+   39             CONTINUE
+                  call delay_remove_tlist(I,STEP,DTK)
+                  CALL FPOLY1(I,I,0)
+                  CALL FPOLY2(I,I,0)
+                  call delay_store_tlist(I)
+#ifdef SIMD
+                  call IRR_SIMD_SET_JP(I,X0(1,I),X0DOT(1,I),F(1,I),
+     &                 FDOT(1,I),BODY(I),T0(I))
+#endif
+                  IPOLY = -1
+               END IF
             END IF
 *
 *       Set flag to ensure new sorting after CALL FPOLY (need IPHASE < 0).
