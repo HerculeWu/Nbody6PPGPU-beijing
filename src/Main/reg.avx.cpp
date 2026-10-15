@@ -81,6 +81,7 @@ static v4sf *jparr2; // {vx, vy, vz, pad}
 
 static myvector<int> nblist[TMAX][4];
 static int nbody, nbodymax;
+static int nbody_real; // nj without the zero-mass padding particle
 
 static void *amalloc64(size_t n){
 	void *ptr;
@@ -142,6 +143,7 @@ void GPUNB_send(
 {
 	time_send -= get_wtime();
 	nbody = nj;
+	nbody_real = nj;
     ::isend++;
 	assert(nbody <= nbodymax);
 #pragma omp parallel for
@@ -236,6 +238,7 @@ void GPUNB_regf(
 		const v4sf *jpp1 = jparr1;
 		const v4sf *jpp2 = jparr2;
 		const int nj = ::nbody;
+		const int njreal = ::nbody_real;
 		for(int j=0; j<nj; j+=2){
 			const v8sf jp1 = *(v8sf *)(jpp1 + j);
 			const v8sf jp2 = *(v8sf *)(jpp2 + j);
@@ -272,7 +275,11 @@ void GPUNB_regf(
               mask = __builtin_ia32_cmpps256(r2min, h2i, 17); // 17 : less-than ordered quiet
             }
 
-			const int bits = __builtin_ia32_movmskps256(mask);
+			int bits = __builtin_ia32_movmskps256(mask);
+			// The padding particle of an odd nj (index njreal, in the
+			// upper lanes) is never a neighbour: its list index would be
+			// NTOT+1 on the host side.
+			if(j+1 >= njreal) bits &= 0x0f;
 			if(bits){
 			//if(bits & 0x0f){
 				if (bits&1) nblist[tid][0].push_back(j);
