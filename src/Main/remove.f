@@ -6,6 +6,7 @@
 *
       INCLUDE 'common6.h'
       COMMON/XPRED/ TPRED(NMAX),TRES(KMAX),ipredall
+      COMMON/POTDEN/  RHO(NMAX),XNDBL(NMAX),PHIDBL(NMAX)
       REAL*8 TPRED,A(6)
       LOGICAL ipredall
 *
@@ -71,6 +72,8 @@
    12     CONTINUE
 *
           TPRED(J) = TPRED(J1)
+*       ESCAPE reads PHIDBL of later bodies after this compaction.
+          PHIDBL(J) = PHIDBL(J1)
           BODY(J) = BODY(J1)
           RS(J) = RS(J1)
           RADIUS(J) = RADIUS(J1)
