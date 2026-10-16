@@ -53,7 +53,8 @@ C               NXTLST(NDTK(K-1)) = NXTLST(NDTK(K-1)) - 1
             NDTK(K) = NDTK(K) - 1
             DO LK = K-1,NDTMIN,-1
 *     Shift last index position to beginning of level L
-               IF(NDTK(LK+1)+1.NE.LK) THEN
+*     (skip only the self-move of an empty level; NDTK holds positions)
+               IF(NDTK(LK+1)+1.NE.NDTK(LK)) THEN
                   NXTLST(NDTK(LK+1)+1) = NXTLST(NDTK(LK))
 *     Avoid the missing -1 if the removed one is the ending of level
                   IF(L.EQ.NDTK(LK+1)+1.AND.NXTLST(L).GT.I) THEN
