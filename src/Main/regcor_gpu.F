@@ -311,6 +311,16 @@ c$$$          call flush(6)
           DF2 = 1.0
 C$$$          FI2 = 0.0
           FR2 = 0.0
+*       FI holds the small central mass that NBINT_COR assumes for an
+*       empty list; take it out so that only the actual change is added.
+          R2 = XI(1)**2 + XI(2)**2 + XI(3)**2
+          FIJ = 0.01*BODYM/(R2*SQRT(R2))
+          RDOT = 3.0*(XI(1)*XIDOT(1) + XI(2)*XIDOT(2) +
+     &                                 XI(3)*XIDOT(3))/R2
+          DO 53 K = 1,3
+             DFIRR(K) = DFIRR(K) + FIJ*XI(K)
+             DFD(K) = DFD(K) + (XIDOT(K) - RDOT*XI(K))*FIJ
+ 53       CONTINUE
 
           GO TO 70
       END IF
