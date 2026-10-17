@@ -396,11 +396,12 @@
           IF (LIST(1,J).GT.0) GO TO 130
 *
 *       Add a distant body as neighbour if list only contains escaper.
+*       Never take body #J itself (RESC2 = 0 for KZ(23) >= 3 stops at once).
           K = IFIRST - 1
   100     K = K + 1
           RJK2 = (X(1,J) - X(1,K))**2 + (X(2,J) - X(2,K))**2 +
      &                                  (X(3,J) - X(3,K))**2
-          IF (RJK2.LT.RESC2.AND.K.LT.N) GO TO 100
+          IF ((RJK2.LT.RESC2.OR.K.EQ.J).AND.K.LT.N) GO TO 100
           LIST(1,J) = 1
           LIST(2,J) = K
           GO TO 150
